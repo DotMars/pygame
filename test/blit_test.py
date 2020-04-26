@@ -84,6 +84,109 @@ class BlitTest(unittest.TestCase):
             blit_list.append((surf, dest))
         return blit_list
 
+    def make_benchmark_blit_list(self, num_surfs):
+
+        from random import randint
+
+        blit_list = []
+        for i in range(num_surfs):
+            dest = (i * 10, 0)
+            surf = pygame.Surface((10, 10), SRCALPHA, 32)
+            r, g, b = randint(0,255), randint(0, 255), randint(0, 255)
+            color = (r, g, b)
+            surf.fill(color)
+            blit_list.append((surf, dest))
+        return blit_list
+    def test_blit_benchmark(self):
+
+        filename = 'flyboy.png'
+
+        pygame.display.init()
+        screen = pygame.display.set_mode((720, 480))
+        ino_alpha = pygame.image.load(filename).convert()
+        isurf_alpha = pygame.image.load(filename).convert()
+        isurf_alpha.set_alpha(100)
+        ipixel_alpha = pygame.image.load(filename).convert_alpha()
+        idual_alpha = pygame.image.load(filename).convert_alpha()
+        idual_alpha.set_alpha(100)
+
+        def test(methods, tries = 1000):
+            for method in methods:
+                start = time.time()
+                name = method(tries)
+                results = (time.time() - start) * 1000
+                print('tested {}: {}ms'.format(name, round(results, 3)))
+
+        def no_alpha(tries):
+            for t in range(tries):
+                screen.blit(ino_alpha, (10,10))
+            return 'Blit no alpha'
+
+        def surf_alpha(tries):
+            for t in range(tries):
+                screen.blit(isurf_alpha, (10,10))
+            return  'Blit surface alpha'
+
+        def pixel_alpha(tries):
+            for t in range(tries):
+                screen.blit(ipixel_alpha, (10,10))
+            return  'Blit pixel alpha'
+
+        def dual_alpha(tries):
+            for t in range(tries):
+                screen.blit(idual_alpha, (10,10))
+            return 'Blit pixel and surface alpha'
+
+        for i in range(3):
+            tries = 1000
+            w, h = ino_alpha.get_size()
+            print(f'\nTest {i}: {tries} blits of image size {w}, {h}')
+
+            test((no_alpha, surf_alpha, pixel_alpha, dual_alpha), tries)
+
+    def test_blit_performance(self):
+
+        NUM_SURFS = 1500
+        PRINT_TIMING = 1
+        dst = pygame.Surface((NUM_SURFS * 10, 10), SRCALPHA, 32)
+        dst.fill((230, 230, 230))
+        blit_list = self.make_benchmark_blit_list(NUM_SURFS)
+
+        def blits(blit_list):
+            for i in range(0, 5000):
+                for surface, dest in blit_list:
+                    dst.blit(surface, dest)
+
+        from time import time
+
+        t0 = time()
+        results = blits(blit_list)
+        t1 = time()
+        if PRINT_TIMING:
+            print("python blits: %s" % (t1 - t0))
+
+        dst.fill((230, 230, 230))
+        t0 = time()
+        results = dst.blits(blit_list)
+        t1 = time()
+        if PRINT_TIMING:
+            print("Surface.blits :%s" % (t1 - t0))
+
+        self.assertEqual(len(results), NUM_SURFS)
+
+        t0 = time()
+        results = dst.blits(blit_list, doreturn=0)
+        t1 = time()
+        if PRINT_TIMING:
+            print("Surface.blits doreturn=0: %s" % (t1 - t0))
+        self.assertEqual(results, None)
+
+        t0 = time()
+        results = dst.blits(((surf, dest) for surf, dest in blit_list))
+        t1 = time()
+        if PRINT_TIMING:
+            print("Surface.blits generator: %s" % (t1 - t0))
+
     def test_blits(self):
 
         NUM_SURFS = 255
